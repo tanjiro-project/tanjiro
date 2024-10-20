@@ -4,6 +4,8 @@ use twilight_gateway::{Config, Intents, stream::{self}, CloseFrame, Shard, Event
 use twilight_http::Client;
 use tokio::signal;
 use dotenv::dotenv;
+use twilight_model::gateway::payload::outgoing::update_presence::UpdatePresencePayload;
+use twilight_model::gateway::presence::{ActivityType, MinimalActivity, Status};
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -13,11 +15,26 @@ async fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::fmt::init();
 
+    let version = env!("CARGO_PKG_VERSION");
+
     let token = env::var("DISCORD_TOKEN")
         .expect("DISCORD_TOKEN must be set.");
 
     let client = Client::new(token.clone());
-    let config = Config::new(token, Intents::GUILDS | Intents::GUILD_MESSAGES);
+
+    let config = Config::builder(token.clone(), Intents::GUILDS | Intents::GUILD_MESSAGES)
+        .presence(UpdatePresencePayload::new(
+            vec![MinimalActivity {
+                kind: ActivityType::Listening,
+                name: format!("Logging | v{}", version),
+                url: None,
+            }
+                .into()],
+            false,
+            None,
+            Status::Online,
+        )?)
+        .build();
 
     let shards: Vec<_> = stream::create_recommended(&client, config, |_shard, builder| builder.build()).await?.collect();
 
