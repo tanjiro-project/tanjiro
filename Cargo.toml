@@ -1,8 +1,13 @@
-[package]
-name = "tanjiro"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "gateway"
+]
+resolver = "2"
 
-[dependencies]
-anyhow = "1.0.90"
-tokio = { version = "1.40.0", features = ["rt", "rt-multi-thread", "macros"] }
+[workspace.package]
+authors = ["Tanjiro Project"]
+edition = "2021"
+include = ["README.md"]
+license = "AGPL-3"
+repository = "https://github.com/tanjiro-project/tanjiro"
+rust-version = "1.80.0"
