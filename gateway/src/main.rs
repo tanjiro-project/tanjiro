@@ -1,15 +1,18 @@
 use std::env;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
-use twilight_gateway::{Config, Intents, stream::{self}, CloseFrame, Shard, Event};
+use twilight_gateway::{Config, Intents, stream::{self}, CloseFrame};
 use twilight_http::Client;
 use tokio::signal;
 use dotenv::dotenv;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex};
 use twilight_model::gateway::payload::outgoing::update_presence::UpdatePresencePayload;
 use twilight_model::gateway::presence::{ActivityType, MinimalActivity, Status};
 use twilight_cache_inmemory::{InMemoryCache};
+use crate::handle_events::{handle_events};
+
+mod handlers;
+mod handle_events;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -26,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     let client = Client::new(token.clone());
 
-    let config = Config::builder(token.clone(), Intents::GUILDS | Intents::GUILD_MESSAGES)
+    let config = Config::builder(token.clone(), Intents::GUILDS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT)
         .presence(UpdatePresencePayload::new(
             vec![MinimalActivity {
                 kind: ActivityType::Listening,
@@ -49,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
 
     for shard in shards {
         let cache_clone = Arc::clone(&cache);
+
         senders.push(shard.sender());
         tasks.push(tokio::spawn(handle_events(shard, cache_clone)));
     }
@@ -62,44 +66,6 @@ async fn main() -> anyhow::Result<()> {
 
     for jh in tasks {
         let _ = jh.await?;
-    }
-
-    Ok(())
-}
-
-async fn handle_events(mut shard: Shard, cache: Arc<Mutex<InMemoryCache>>) -> anyhow::Result<()> {
-    tracing::info!("Starting to handle events for shard {:?}", shard.id());
-
-    loop {
-        let event = match shard.next_event().await {
-            Ok(event) => event,
-            Err(error) if error.is_fatal() => {
-                tracing::error!(?error, "fatal error while receiving event");
-                break;
-            }
-            Err(error) => {
-                tracing::warn!(?error, "error while receiving event");
-                continue;
-            }
-        };
-
-        {
-            let cache = cache.lock().await;
-            cache.update(&event);
-        }
-
-        match &event {
-            Event::GatewayClose(close_event) => {
-                tracing::info!(kind = ?event.kind(), shard = ?shard.id(), "received close event: {:?}", close_event);
-            },
-            Event::MessageCreate(message_event) => {
-                tracing::info!(kind = ?event.kind(), shard = ?shard.id(), "received message: {:?}", message_event);
-            },
-            // Add other event types as needed
-            _ => {
-                tracing::info!(kind = ?event.kind(), shard = ?shard.id(), "received event of type {:?}", event.kind());
-            }
-        }
     }
 
     Ok(())
