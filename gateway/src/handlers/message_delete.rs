@@ -6,8 +6,6 @@ use twilight_model::gateway::payload::incoming::MessageDelete;
 
 pub(crate) async fn handle_message_delete_events(event: &MessageDelete, cache: Arc<Mutex<InMemoryCache>>) {
     let cache_lock = cache.lock().await;
-
-    // Get the message from cache before removing it
     let message = cache_lock.message(event.id);
 
     match message {
