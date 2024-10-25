@@ -1,11 +1,15 @@
 use std::env;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use twilight_gateway::{Config, Intents, stream::{self}, CloseFrame, Shard, Event};
 use twilight_http::Client;
 use tokio::signal;
 use dotenv::dotenv;
+use tokio::sync::Mutex;
 use twilight_model::gateway::payload::outgoing::update_presence::UpdatePresencePayload;
 use twilight_model::gateway::presence::{ActivityType, MinimalActivity, Status};
+use twilight_cache_inmemory::{InMemoryCache};
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -41,9 +45,12 @@ async fn main() -> anyhow::Result<()> {
     let mut senders = Vec::with_capacity(shards.len());
     let mut tasks = Vec::with_capacity(shards.len());
 
+    let cache = Arc::new(Mutex::new(InMemoryCache::new()));
+
     for shard in shards {
+        let cache_clone = Arc::clone(&cache);
         senders.push(shard.sender());
-        tasks.push(tokio::spawn(handle_events(shard)));
+        tasks.push(tokio::spawn(handle_events(shard, cache_clone)));
     }
 
     signal::ctrl_c().await?;
@@ -60,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_events(mut shard: Shard) -> anyhow::Result<()> {
+async fn handle_events(mut shard: Shard, cache: Arc<Mutex<InMemoryCache>>) -> anyhow::Result<()> {
     tracing::info!("Starting to handle events for shard {:?}", shard.id());
 
     loop {
@@ -75,6 +82,11 @@ async fn handle_events(mut shard: Shard) -> anyhow::Result<()> {
                 continue;
             }
         };
+
+        {
+            let cache = cache.lock().await;
+            cache.update(&event);
+        }
 
         match &event {
             Event::GatewayClose(close_event) => {
