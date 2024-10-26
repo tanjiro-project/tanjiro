@@ -28,7 +28,7 @@ RUN rm -f target/$RUST_TARGET/release/deps/gateway*
 RUN echo "Listing files after creating src directory:" && ls -la ./
 
 # Copy the source code (if there are more files in ./gateway/src)
-COPY gateway/src ./src
+COPY ./src ./src
 
 # Build the project again with the full source
 RUN source $HOME/.cargo/env && \
