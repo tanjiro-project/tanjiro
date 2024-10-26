@@ -7,6 +7,8 @@ RUN curl -sSf https://sh.rustup.rs | sh -s -- --profile minimal --component rust
 
 WORKDIR /build
 
+RUN ls
+
 COPY Cargo.toml Cargo.lock ./gateway/
 
 RUN mkdir src/
