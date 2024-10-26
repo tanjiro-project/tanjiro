@@ -25,7 +25,7 @@ RUN source $HOME/.cargo/env && \
 # Clean up previous binaries
 RUN rm -f target/$RUST_TARGET/release/deps/gateway*
 
-RUN ls ./
+RUN echo "Listing files after creating src directory:" && ls -la ./
 
 # Copy the source code (if there are more files in ./gateway/src)
 COPY gateway/src ./src
