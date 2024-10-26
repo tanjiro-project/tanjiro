@@ -1,7 +1,8 @@
 [workspace]
-members = [ "database",
+members = [
+    "database",
     "gateway"
-]
+, "models"]
 resolver = "2"
 
 [workspace.package]
