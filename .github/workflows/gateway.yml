@@ -48,11 +48,10 @@ jobs:
         uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
         id: img_meta
         with:
-          images: "ghcr.io/${{ steps.string.outputs.lowercase }}-gateway"
+          images: "ghcr.io/tanjiro-project/tanjiro-gateway:${{ matrix.target }}"
           tags: |
             type=ref,event=branch
             type=sha,prefix=,suffix=,format=short
-            type=flavor,event=branch,flavors=${{ matrix.target }}
 
       - name: Set platforms for Docker build
         id: set_platforms
