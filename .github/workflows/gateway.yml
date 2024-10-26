@@ -52,7 +52,6 @@ jobs:
           flavor: |
             latest=auto
           tags: |
-            type=ref
             type=sha,prefix=,suffix=-${{ matrix.target }},format=short
 
       - name: Set platforms for Docker build
