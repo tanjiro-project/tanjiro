@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tracing::{info, warn};
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_model::gateway::payload::incoming::MessageDelete;
