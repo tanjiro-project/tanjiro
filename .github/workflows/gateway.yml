@@ -49,9 +49,11 @@ jobs:
         id: img_meta
         with:
           images: "ghcr.io/tanjiro-project/tanjiro-gateway"
+          flavor: |
+            ${{ matrix.target }}
           tags: |
             type=ref,type=sha,
-            prefix=,suffix=,format=short,flavor=${{ matrix.target }}
+            prefix=,suffix=,format=short
 
       - name: Set platforms for Docker build
         id: set_platforms
