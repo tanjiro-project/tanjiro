@@ -1,4 +1,78 @@
-name: gateway.yml
+name: Gateway Docker Build
+
 on:
+  release:
+    types: [created]
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
 
 jobs:
+  build:
+    runs-on: "ubuntu-latest"
+    strategy:
+      matrix:
+        target:
+          - aarch64
+
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        if: ${{ github.event_name != 'pull_request' }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag name
+        id: tags
+        if: ${{ github.event_name == 'release' }}
+        run: echo ::set-output name=name::${GITHUB_REF##*/}
+
+      - name: Extract flavor
+        id: flavor
+        run: if [ "${{ github.event_name }}" = "release" ]; then echo ::set-output name=name::; else echo ::set-output name=name::-dev; fi
+
+      - id: string
+        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
+        with:
+          string: ${{ github.repository }}
+
+      - name: Generate Docker image metadata
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        id: img_meta
+        with:
+          images: "ghcr.io/${{ steps.string.outputs.lowercase }}-gateway"
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=,suffix=,format=short
+            type=flavor,event=branch,flavors=${{ matrix.target }}
+
+      - name: Set platforms for Docker build
+        id: set_platforms
+        run: |
+          if [[ "${{ matrix.target }}" == "aarch64" ]]; then
+            echo "platforms=linux/arm64" >> $GITHUB_ENV
+          else
+            echo "platforms=linux/amd64" >> $GITHUB_ENV
+          fi
+
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        with:
+          file: ./gateway/Dockerfile
+          context: ./
+          platforms: ${{ env.platforms }}
+          tags: ${{ steps.img_meta.outputs.tags }}
+          labels: ${{ steps.img_meta.outputs.labels }}
+          push: ${{ github.event_name != 'pull_request' }}
+          secrets: |
+            GITHUB_SHA=${{ github.sha }}
+            GH_PKG_TOKEN=${{ secrets.GH_TOKEN }}
