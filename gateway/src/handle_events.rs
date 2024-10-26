@@ -13,7 +13,7 @@ pub async fn handle_event(event: Arc<Mutex<Event>>, cache: Arc<Mutex<InMemoryCac
             message_delete::handle_message_delete_events(message_event, cache).await;
         }
 
-        _ => { }
+        _ => {}
     }
 }
 
@@ -30,7 +30,7 @@ pub async fn handle_events(mut shard: Shard, cache: Arc<Mutex<InMemoryCache>>) -
                 let cache_lock = cache.lock().await;
                 cache_lock.update(&event);
 
-                continue; // Continue to the next iteration
+                continue;
             }
             Err(error) if error.is_fatal() => {
                 tracing::error!(?error, "fatal error while receiving event");
