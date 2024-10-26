@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use tokio::sync::{mpsc, Mutex, RwLock};
+use tokio::sync::{Mutex};
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::Shard;
 use twilight_http::Client;
@@ -43,19 +43,22 @@ pub async fn handle_events(http_client: Arc<Client>, app_id: Id<ApplicationMarke
             }
         };
 
-        {
-            let cache = cache.lock().await;
-            cache.update(&event);
-        }
+        let mut cache = cache.lock().await;
 
         match &event {
-            Event::GatewayClose(close_event) => {
-            },
             Event::InteractionCreate(interaction) => {
+                cache.update(&event);
                 let framework_clone = Arc::clone(&framework);
                 framework_clone.process(interaction.0.clone()).await;
             },
+
+            Event::MessageDelete(message) => {
+                message_delete::handle_message_delete_events(message, &mut cache).await;
+                cache.update(&event);
+            }
+
             _ => {
+                cache.update(&event);
                 tracing::info!(kind = ?event.kind(), shard = ?shard.id(), "received event of type {:?}", event.kind());
             }
         }
