@@ -9,10 +9,13 @@ use tokio::sync::{Mutex};
 use twilight_model::gateway::payload::outgoing::update_presence::UpdatePresencePayload;
 use twilight_model::gateway::presence::{ActivityType, MinimalActivity, Status};
 use twilight_cache_inmemory::{InMemoryCache};
+use twilight_model::id::Id;
+use twilight_model::id::marker::ApplicationMarker;
 use crate::handle_events::{handle_events};
 
 mod handlers;
 mod handle_events;
+mod commands;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -27,7 +30,8 @@ async fn main() -> anyhow::Result<()> {
     let token = env::var("DISCORD_TOKEN")
         .expect("DISCORD_TOKEN must be set.");
 
-    let client = Client::new(token.clone());
+    let app_id = Id::<ApplicationMarker>::new(std::env::var("APP_ID")?.parse()?);
+    let client = Arc::new(Client::new(token.clone()));
 
     let config = Config::builder(token.clone(), Intents::GUILDS | Intents::GUILD_MESSAGES | Intents::MESSAGE_CONTENT)
         .presence(UpdatePresencePayload::new(
@@ -51,10 +55,8 @@ async fn main() -> anyhow::Result<()> {
     let cache = Arc::new(Mutex::new(InMemoryCache::new()));
 
     for shard in shards {
-        let cache_clone = Arc::clone(&cache);
-
         senders.push(shard.sender());
-        tasks.push(tokio::spawn(handle_events(shard, cache_clone)));
+        tasks.push(tokio::spawn(handle_events(client.clone(), app_id, shard, cache.clone())));
     }
 
     signal::ctrl_c().await?;

@@ -1,37 +1,38 @@
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::atomic::Ordering;
+use tokio::sync::{mpsc, Mutex, RwLock};
 use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::Shard;
+use twilight_http::Client;
 use twilight_model::gateway::event::Event;
+use twilight_model::id::Id;
+use twilight_model::id::marker::ApplicationMarker;
+use vesper::framework::Framework;
 use crate::handlers::message_delete;
+use crate::commands::hello::hello;
+use crate::SHUTDOWN;
 
-pub async fn handle_event(event: Arc<Mutex<Event>>, cache: Arc<Mutex<InMemoryCache>>) {
-    let event = event.lock().await;
-
-    match &*event {
-        Event::MessageDelete(message_event) => {
-            message_delete::handle_message_delete_events(message_event, cache).await;
-        }
-
-        _ => {}
-    }
-}
-
-pub async fn handle_events(mut shard: Shard, cache: Arc<Mutex<InMemoryCache>>) -> anyhow::Result<()> {
+pub async fn handle_events(http_client: Arc<Client>, app_id: Id<ApplicationMarker>, mut shard: Shard, cache: Arc<Mutex<InMemoryCache>>) -> anyhow::Result<()> {
     tracing::info!("Starting to handle events for shard {:?}", shard.id());
 
+    let framework = Arc::new(Framework::builder(http_client, app_id, ())
+        .command(hello)
+        .build());
+
+    framework.register_global_commands().await?;
+
     loop {
-        let _ = match shard.next_event().await {
-            Ok(event) => {
-                let event_mutex = Arc::new(Mutex::new(event.clone()));
+        let event = match shard.next_event().await {
+            Ok(Event::GatewayClose(close_event)) => {
+                tracing::info!(shard = ?shard.id(), "received close event: {:?}", close_event);
 
-                handle_event(event_mutex.clone(), cache.clone()).await;
-
-                let cache_lock = cache.lock().await;
-                cache_lock.update(&event);
+                if SHUTDOWN.load(Ordering::Relaxed) {
+                    break;
+                }
 
                 continue;
-            }
+            },
+            Ok(event) => event,
             Err(error) if error.is_fatal() => {
                 tracing::error!(?error, "fatal error while receiving event");
                 break;
@@ -41,6 +42,23 @@ pub async fn handle_events(mut shard: Shard, cache: Arc<Mutex<InMemoryCache>>) -
                 continue;
             }
         };
+
+        {
+            let cache = cache.lock().await;
+            cache.update(&event);
+        }
+
+        match &event {
+            Event::GatewayClose(close_event) => {
+            },
+            Event::InteractionCreate(interaction) => {
+                let framework_clone = Arc::clone(&framework);
+                framework_clone.process(interaction.0.clone()).await;
+            },
+            _ => {
+                tracing::info!(kind = ?event.kind(), shard = ?shard.id(), "received event of type {:?}", event.kind());
+            }
+        }
     }
 
     Ok(())
