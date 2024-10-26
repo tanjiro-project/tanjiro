@@ -52,8 +52,8 @@ jobs:
           flavor: |
             ${{ matrix.target }}
           tags: |
-            type=ref,type=sha,
-            prefix=,suffix=,format=short
+            type=ref,event=branch
+            type=sha,prefix=,suffix=,format=short
 
       - name: Set platforms for Docker build
         id: set_platforms
