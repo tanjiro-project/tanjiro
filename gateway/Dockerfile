@@ -16,7 +16,7 @@ COPY Cargo.toml Cargo.lock ./
 
 # Create the src directory and main.rs file
 RUN mkdir src/
-COPY gateway/main.rs ./src/main.rs
+RUN echo 'fn main() {}' > ./src/main.rs
 
 # Build the project
 RUN source $HOME/.cargo/env && \
