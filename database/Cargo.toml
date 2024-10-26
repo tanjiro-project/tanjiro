@@ -1,14 +1,10 @@
 [package]
 name = "database"
 version = "0.1.0"
-authors.workspace = true
-edition.workspace = true
-include.workspace = true
-license.workspace = true
-repository.workspace = true
-rust-version.workspace = true
+edition = "2021"
 
 [dependencies]
+anyhow = "1.0.91"
 dotenv = "0.15.0"
-sqlx = { version = "0.8.2", features = ["postgres", "migrate", "uuid"] }
-tokio = "1.41.0"
+sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls", "postgres", "migrate", "uuid"] }
+tokio = { version = "1.41.0", features = ["rt", "rt-multi-thread", "macros", "signal"] }
