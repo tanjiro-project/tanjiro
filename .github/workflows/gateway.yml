@@ -50,10 +50,10 @@ jobs:
         with:
           images: "ghcr.io/tanjiro-project/tanjiro-gateway"
           flavor: |
-            ${{ matrix.target }}
+            latest=auto
           tags: |
             type=ref,event=branch
-            type=sha,prefix=,suffix=,format=short
+            type=sha,prefix=,suffix=${{ matrix.target }},format=short
 
       - name: Set platforms for Docker build
         id: set_platforms
