@@ -9,4 +9,6 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-sqlx = "0.8.2"
+dotenv = "0.15.0"
+sqlx = { version = "0.8.2", features = ["postgres", "migrate", "uuid"] }
+tokio = "1.41.0"
