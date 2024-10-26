@@ -2,8 +2,7 @@ FROM docker.io/library/alpine:edge AS builder
 
 ENV RUST_TARGET "aarch64-unknown-linux-musl"
 
-RUN apk upgrade
-RUN apk add curl gcc g++ musl-dev cmake make
+RUN apk add --no-cache curl gcc g++ musl-dev cmake make
 RUN curl -sSf https://sh.rustup.rs | sh -s -- --profile minimal --component rust-src --default-toolchain nightly -y
 
 WORKDIR /build
