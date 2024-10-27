@@ -1,25 +1,17 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use tokio::sync::{Mutex};
-use twilight_cache_inmemory::InMemoryCache;
 use twilight_gateway::Shard;
-use twilight_http::Client;
 use twilight_model::gateway::event::Event;
-use twilight_model::id::Id;
-use twilight_model::id::marker::ApplicationMarker;
 use vesper::framework::Framework;
 use crate::handlers::message_delete;
-use crate::commands::hello::hello;
 use crate::SHUTDOWN;
+use crate::structs::State;
 
-pub async fn handle_events(http_client: Arc<Client>, app_id: Id<ApplicationMarker>, mut shard: Shard, cache: Arc<Mutex<InMemoryCache>>) -> anyhow::Result<()> {
+pub async fn handle_events(state: Arc<Mutex<State>>, mut shard: Shard, framework: Arc<Framework<Arc<Mutex<State>>>>) -> anyhow::Result<()> {
     tracing::info!("Starting to handle events for shard {:?}", shard.id());
 
-    let framework = Arc::new(Framework::builder(http_client, app_id, ())
-        .command(hello)
-        .build());
-
-    framework.register_global_commands().await?;
+    let mut locked_state = state.lock().await;
 
     loop {
         let event = match shard.next_event().await {
@@ -43,13 +35,12 @@ pub async fn handle_events(http_client: Arc<Client>, app_id: Id<ApplicationMarke
             }
         };
 
-        let mut cache = cache.lock().await;
+        let mut cache = &mut locked_state.cache;
 
         match &event {
             Event::InteractionCreate(interaction) => {
                 cache.update(&event);
-                let framework_clone = Arc::clone(&framework);
-                framework_clone.process(interaction.0.clone()).await;
+                framework.process(interaction.0.clone()).await;
             },
 
             Event::MessageDelete(message) => {
