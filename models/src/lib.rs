@@ -1,31 +1,17 @@
+pub mod queries;
+
 use sqlx::FromRow;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-
-#[derive(Debug, FromRow)]
-pub struct Guild {
-    pub id: Uuid,
-    pub guild_id: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
+use sea_query::Iden;
 
 #[derive(Debug, FromRow)]
 pub struct LogType {
     pub id: Uuid,
     pub guild_id: Uuid,
-    pub channel_id: Option<String>,
+    pub channel_id: String,
     pub log_type: LogTypeEnum,
     pub enabled: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, FromRow)]
-pub struct GuildConfig {
-    pub id: Uuid,
-    pub guild_id: Uuid,
-    pub default_channel_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

@@ -6,4 +6,6 @@ edition = "2021"
 [dependencies]
 uuid = { version = "1.11.0", features = ["v4"] }
 chrono = "0.4.38"
-sqlx = { version = "0.8.2", features = ["derive", "macros"]}
+sqlx = { version = "0.8.2", features = ["derive", "macros", "postgres"] }
+sea-query = "0.32.0"
+sea-query-binder = { version = "0.7.0", features = ["sqlx-postgres", "with-chrono", "with-uuid"] }

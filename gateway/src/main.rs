@@ -7,6 +7,7 @@ use tokio::signal;
 use dotenv::dotenv;
 use sqlx::PgPool;
 use tokio::sync::{Mutex};
+use twilight_gateway::stream::ShardEventStream;
 use twilight_model::gateway::payload::outgoing::update_presence::UpdatePresencePayload;
 use twilight_model::gateway::presence::{ActivityType, MinimalActivity, Status};
 use twilight_model::id::Id;
@@ -14,6 +15,8 @@ use twilight_model::id::marker::ApplicationMarker;
 use vesper::framework::Framework;
 use crate::handle_events::{handle_events};
 use crate::structs::State;
+
+use futures::StreamExt;
 
 mod handlers;
 mod handle_events;
@@ -53,35 +56,30 @@ async fn main() -> anyhow::Result<()> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let db = PgPool::connect(&database_url).await?;
 
-    let shards: Vec<_> = stream::create_recommended(&client, config, |_shard, builder| builder.build()).await?.collect();
-
-    let mut senders = Vec::with_capacity(shards.len());
-    let mut tasks = Vec::with_capacity(shards.len());
-
-    let state = Arc::new(Mutex::new(State::new(
-        db
-    )));
+    let mut shards: Vec<_> = stream::create_recommended(&client, config, |_shard, builder| builder.build())
+        .await?
+        .collect();
+    let mut shard_stream = ShardEventStream::new(shards.iter_mut());
+    let state = Arc::new(Mutex::new(State::new(db)));
 
     let framework = Arc::new(Framework::builder(Arc::clone(&client), app_id, Arc::clone(&state))
         .command(commands::ping::ping)
+        .group(|g| {
+            g.name("settings")
+                .description("Manage Bot Settings")
+                .command(commands::settings::set_default_channel::set_default_channel)
+        })
         .build());
 
     framework.register_global_commands().await?;
 
-    for shard in shards {
-        senders.push(shard.sender());
-        tasks.push(tokio::spawn(handle_events(state.clone(), shard, Arc::clone(&framework))));
-    }
+    while let Some(event) = shard_stream.next().await {
+        let ev = event.1?;
 
-    signal::ctrl_c().await?;
-    SHUTDOWN.store(true, Ordering::Relaxed);
-    for sender in senders {
-        // Ignore error if shard's already shutdown.
-        sender.close(CloseFrame::NORMAL)?;
-    }
-
-    for jh in tasks {
-        let _ = jh.await?;
+        let res = handle_events(state.clone(), ev, Arc::clone(&framework)).await;
+        if let Err(res) = res {
+            tracing::error!("{:?}", res);
+        }
     }
 
     Ok(())

@@ -16,5 +16,9 @@ twilight-model = "0.15.4"
 twilight-cache-inmemory = "0.15.4"
 vesper = { git = "https://github.com/AlvaroMS25/vesper", branch = "master", version = "0.13.0" }
 sqlx = { version = "0.8.2", features = ["postgres", "runtime-async-std", "tls-rustls"] }
+sea-query = "0.32.0"
 
 models = { path = "../models" }
+uuid = { version = "1.11.0", features = ["v4"] }
+chrono = "0.4.38"
+futures = "0.3.31"
