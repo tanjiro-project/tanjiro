@@ -13,14 +13,14 @@ COPY ./gateway/Cargo.toml ./gateway/Cargo.lock ./
 RUN mkdir src/
 RUN echo 'fn main() {}' > ./src/main.rs
 
-COPY ./models ./models
+COPY ./models ../models
 
 RUN source $HOME/.cargo/env && \
     cargo build --release --target="$RUST_TARGET"
 
 RUN rm -f target/$RUST_TARGET/release/deps/gateway*
 
-COPY ./models ./models
+COPY ./models ../models
 COPY ./gateway/src ./src
 
 RUN source $HOME/.cargo/env && \
