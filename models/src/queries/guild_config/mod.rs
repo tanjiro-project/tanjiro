@@ -3,7 +3,7 @@ use sea_query::{Expr, Iden, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder;
 use sqlx::{FromRow, PgPool, Row};
 use uuid::Uuid;
-use crate::queries::guild::upsert_guild;
+use crate::queries::guild::{find_guild, upsert_guild};
 
 #[derive(Iden)]
 pub enum GuildConfigs {
@@ -98,16 +98,50 @@ pub async fn insert_guild_config(pool: &PgPool, guild_id: Uuid, guild_config: Gu
     })
 }
 
-pub async fn upsert_guild_config(pool: &PgPool, guild_config: GuildConfigInsertValue) -> Result<GuildConfigStruct, sqlx::Error> {
-    let guild = upsert_guild(&pool, guild_config.guild_id.clone()).await?;
-    let guild_configs = find_guild_config(&pool, guild.id).await;
+pub async fn update_guild_config(pool: &PgPool, guild_config: GuildConfigInsertValue) -> Result<GuildConfigStruct, sqlx::Error> {
+    let fguild = find_guild(pool, guild_config.guild_id.clone()).await?;
+    let fguild_config = find_guild_config(pool, fguild.id).await?;
 
-    match guild_configs {
-        Ok(guild_configs) => {
-            Ok(guild_configs)
+    let (sql, values) = Query::update()
+        .table(GuildConfigs::Table)
+        .values([
+            (GuildConfigs::DefaultChannelId, guild_config.default_channel_id.into())
+        ])
+        .and_where(Expr::col(GuildConfigs::Id).eq(fguild_config.id))
+        .returning(Query::returning()
+            .columns([
+                GuildConfigs::Id,
+                GuildConfigs::GuildId,
+                GuildConfigs::DefaultChannelId,
+                GuildConfigs::CreatedAt,
+                GuildConfigs::UpdatedAt
+            ]))
+        .build_sqlx(PostgresQueryBuilder);
+
+    let row = sqlx::query_with(&sql, values)
+        .fetch_one(pool)
+        .await?;
+
+    Ok(GuildConfigStruct {
+        id: row.try_get("id")?,
+        guild_id: row.try_get("guild_id")?,
+        default_channel_id: row.try_get("default_channel_id")?,
+        created_at: row.try_get("created_at")?,
+        updated_at: row.try_get("updated_at")?
+    })
+}
+
+pub async fn upsert_guild_config(pool: &PgPool, guild_config: GuildConfigInsertValue) -> Result<GuildConfigStruct, sqlx::Error> {
+    let fguild = upsert_guild(&pool, guild_config.guild_id.clone()).await?;
+    let fguild_config = find_guild_config(&pool, fguild.id).await;
+
+    match fguild_config {
+        Ok(_) => {
+            let update_guild_config = update_guild_config(pool, guild_config).await?;
+            Ok(update_guild_config)
         },
         Err(sqlx::Error::RowNotFound) => {
-            let guild_configs = insert_guild_config(pool, guild.id, guild_config).await?;
+            let guild_configs = insert_guild_config(pool, fguild.id, guild_config).await?;
             Ok(guild_configs)
         },
         Err(e) => {
